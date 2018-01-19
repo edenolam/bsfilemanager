@@ -1,0 +1,53 @@
+version: '2.3'
+
+services:
+
+  bsfm_services:
+    build:
+      context: .
+    environment:
+      - SPRING_PROFILES_ACTIVE=localdocker
+      - SERVER_PORT=8080
+      - MYSQL_DATABASE=cig_bs_fsm
+      - MYSQL_USER=bsfm
+      - MYSQL_PASSWORD=control
+    ports:
+      - "8081:8080"
+#    links:
+#      - mysql
+    volumes:
+      - ~/.docker_local_folders/bilansocial/bsfm/logs:/logs
+      - ~/.docker_local_folders/bilansocial/bsfm/nas-drive:/nas-drive
+    networks:
+      - bsfm_net
+    depends_on:
+      mysql:
+        condition: service_started
+
+  mysql:
+    image: mysql:5.7.18
+    environment:
+      - MYSQL_DATABASE=cig_bs_fsm
+      - MYSQL_ROOT_PASSWORD=control
+      - MYSQL_USER=bsfm
+      - MYSQL_PASSWORD=control
+    ports:
+      - "13306:3306"
+    volumes:
+      - ~/.docker_local_folders/bilansocial/bsfm/mysql:/var/lib/mysql
+    networks:
+      bsfm_net:
+        aliases:
+          - mysql
+#    healthcheck:
+#      test: ["CMD", "curl", "-f", "http://localhost"]
+#      test: ["CMD-SHELL", "nc -vz localhost 3306 || exit 1"]
+#      test: nc -vz localhost 3306 || exit 1
+#      test: timeout 1 bash -c 'cat < /dev/null > /dev/tcp/localhost/3306' || exit 1
+#      interval: 5s
+#      timeout: 2s
+#      retries: 10
+#      start_period: 10s
+
+networks:
+  bsfm_net:
