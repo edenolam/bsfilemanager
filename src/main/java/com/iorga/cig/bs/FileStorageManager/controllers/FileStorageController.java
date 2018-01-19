@@ -35,24 +35,17 @@ public class FileStorageController {
     /**
      * Récupération des informations relatives au fichier demandé.
      * Avec vérification de la correspondance des informations trouvées avec le owner spécifié.
-     *
-     * @param ownerKey identifiant du owner
      * @param fileKey  identifiant du fichier
      * @return file informations
      * @throws NotFound404Exception
      */
-    private BSFileInformation getFileInfos(String ownerKey, String fileKey) throws NotFound404Exception {
+    private BSFileInformation getFileInfos(String fileKey) throws NotFound404Exception {
         List<BSFileInformation> infos = bsfiRepository.findByFileKey(fileKey);
         if (infos.size() < 1) {
             log.warn(String.format("Le fichier demandé n'existe pas (%s)", fileKey));
             throw new NotFound404Exception();
         }
-        BSFileInformation fileInfos = infos.get(0);
-        if (ownerKey != null && !fileInfos.getOwnerKey().equals(ownerKey)) {
-            log.warn(String.format("Le fichier demandé n'existe pas (%s)", fileKey));
-            throw new NotFound404Exception();
-        }
-        return fileInfos;
+        return infos.get(0);
     }
 
     ///
@@ -67,7 +60,7 @@ public class FileStorageController {
     public BSFileInformation getBSFileInfo(
             @ApiParam(value = "${FileStorageController.fileKey}", required = true) @PathVariable String fileKey)
             throws NotFound404Exception {
-        return getFileInfos(null, fileKey);
+        return getFileInfos(fileKey);
     }
 
     @ApiOperation(value = "${FileStorageController.getMultipleBSFileInfo}",
@@ -200,18 +193,17 @@ public class FileStorageController {
 
     @ApiOperation(value = "${FileStorageController.downloadContent}",
             notes = "${FileStorageController.downloadContent.notes}")
-    @GetMapping(value = "/owners/{ownerKey}/files/{fileKey}")
+    @GetMapping(value = "/fileInfos/{fileKey}/getContent")
     public ResponseEntity<Resource> downloadContent(
-            @ApiParam(value = "${FileStorageController.ownerKey}", required = true, example = "CIG-50") @PathVariable String ownerKey,
             @ApiParam(value = "${FileStorageController.fileKey}", required = true) @PathVariable String fileKey)
             throws NotFound404Exception, Forbidden403Exception, ServerError500Exception {
 
         // Récupération des informations relatives au fichier demandé
-        BSFileInformation fileInfos = getFileInfos(ownerKey, fileKey);
+        BSFileInformation fileInfos = getFileInfos(fileKey);
 
         // Tests status (disponibilité)
         if (fileInfos.getStatus() == -1) {
-            log.warn(String.format("Le fichier demandé a été supprimé (owner=%s, id=%d)", ownerKey, fileKey));
+            log.warn(String.format("Le fichier demandé a été supprimé (%s)", fileKey));
             throw new Forbidden403Exception("Le fichier demandé a été supprimé");
         }
 
@@ -238,9 +230,8 @@ public class FileStorageController {
     @ApiOperation(value = "${FileStorageController.updateFileStatus}",
             notes = "${FileStorageController.updateFileStatus.notes}",
             response = BSFileInformation.class)
-    @PatchMapping(value = "/owners/{ownerKey}/fileInfos/{fileKey}/updateStatus")
+    @PatchMapping(value = "/fileInfos/{fileKey}/updateStatus")
     public BSFileInformation updateFileStatus(
-            @ApiParam(value = "${FileStorageController.ownerKey}", required = true, example = "CIG-50") @PathVariable String ownerKey,
             @ApiParam(value = "${FileStorageController.fileKey}", required = true) @PathVariable String fileKey,
             @ApiParam(value = "${FileStorageController.softDeleteFile.BSFile}", required = true) @RequestBody BSFile bsFile)
             throws NotFound404Exception, BadRequest400Exception {
@@ -251,7 +242,7 @@ public class FileStorageController {
         }
 
         // Récupération des informations relatives au fichier demandé
-        BSFileInformation fileInfos = getFileInfos(ownerKey, fileKey);
+        BSFileInformation fileInfos = getFileInfos(fileKey);
 
         // Soft Suppression des informations
         fileInfos.setStatus(bsFile.getStatus());
@@ -261,15 +252,14 @@ public class FileStorageController {
 
     @ApiOperation(value = "${FileStorageController.deleteFile}",
             notes = "${FileStorageController.deleteFile.notes}")
-    @DeleteMapping(value = "/owners/{ownerKey}/fileInfos/{fileKey}")
+    @DeleteMapping(value = "/fileInfos/{fileKey}")
     @ResponseBody
     public void deleteFile(
-            @ApiParam(value = "${FileStorageController.ownerKey}", required = true, example = "CIG-50") @PathVariable String ownerKey,
             @ApiParam(value = "${FileStorageController.fileKey}", required = true) @PathVariable String fileKey)
             throws NotFound404Exception, ServerError500Exception {
 
         // Récupération des informations relatives au fichier demandé
-        BSFileInformation fileInfos = getFileInfos(ownerKey, fileKey);
+        BSFileInformation fileInfos = getFileInfos(fileKey);
 
         // Suppression des informations
         bsfiRepository.delete(fileInfos.getId());
@@ -280,15 +270,14 @@ public class FileStorageController {
 
     @ApiOperation(value = "${FileStorageController.softDeleteFile}",
             notes = "${FileStorageController.softDeleteFile.notes}")
-    @DeleteMapping(value = "/owners/{ownerKey}/fileInfos/{fileKey}/soft")
+    @DeleteMapping(value = "/fileInfos/{fileKey}/soft")
     @ResponseBody
     public void softDeleteFile(
-            @ApiParam(value = "${FileStorageController.ownerKey}", required = true, example = "CIG-50") @PathVariable String ownerKey,
             @ApiParam(value = "${FileStorageController.fileKey}", required = true) @PathVariable String fileKey)
             throws NotFound404Exception {
 
         // Récupération des informations relatives au fichier demandé
-        BSFileInformation fileInfos = getFileInfos(ownerKey, fileKey);
+        BSFileInformation fileInfos = getFileInfos(fileKey);
 
         // Soft Suppression des informations
         fileInfos.setStatus(-1);
