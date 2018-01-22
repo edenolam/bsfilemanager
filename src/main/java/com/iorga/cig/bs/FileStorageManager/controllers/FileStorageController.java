@@ -1,7 +1,8 @@
 package com.iorga.cig.bs.FileStorageManager.controllers;
 
 import com.iorga.cig.bs.FileStorageManager.exceptions.*;
-import com.iorga.cig.bs.FileStorageManager.models.*;
+import com.iorga.cig.bs.FileStorageManager.models.BSFile;
+import com.iorga.cig.bs.FileStorageManager.models.BSFileInformation;
 import com.iorga.cig.bs.FileStorageManager.services.IBSFileInformationRepository;
 import com.iorga.cig.bs.FileStorageManager.services.Tools;
 import io.swagger.annotations.ApiOperation;
@@ -14,18 +15,17 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.net.URI;
 import java.nio.file.Path;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 public class FileStorageController {
 
     private final Logger log = LoggerFactory.getLogger(this.getClass());
+
+    private static final String API_VERSION = "/api/v1";
 
     @Autowired
     private IBSFileInformationRepository bsfiRepository;
@@ -56,7 +56,7 @@ public class FileStorageController {
     @ApiOperation(value = "${FileStorageController.getBSFileInfo}",
             notes = "${FileStorageController.getBSFileInfo.notes}",
             response = BSFileInformation.class)
-    @GetMapping(value = "/fileInfos/{fileKey}", produces = "application/json")
+    @GetMapping(value = API_VERSION + "/fileInfos/{fileKey}", produces = "application/json")
     @ResponseBody
     public BSFileInformation getBSFileInfo(
             @ApiParam(value = "${FileStorageController.fileKey}", required = true) @PathVariable String fileKey)
@@ -68,7 +68,7 @@ public class FileStorageController {
             notes = "${FileStorageController.getMultipleBSFileInfo.notes}",
             response = BSFileInformation.class,
             responseContainer = "List")
-    @PostMapping(value = "/fileInfos/getMultiple", produces = "application/json")
+    @PostMapping(value = API_VERSION + "/fileInfos/getMultiple", produces = "application/json")
     @ResponseBody
     public List<BSFileInformation> getMultipleBSFileInfo(
             @ApiParam(value = "${FileStorageController.getMultipleBSFileInfo.fileKeys}", required = true) @RequestBody List<String> fileKeys)
@@ -86,7 +86,7 @@ public class FileStorageController {
             notes = "${FileStorageController.listFilesFromFolder.notes}",
             response = BSFileInformation.class,
             responseContainer = "List")
-    @GetMapping(value = "/folders/{folderName}/fileInfos", produces = "application/json")
+    @GetMapping(value = API_VERSION + "/folders/{folderName}/fileInfos", produces = "application/json")
     @ResponseBody
     public List<BSFileInformation> listFilesFromFolder(
             @ApiParam(value = "${FileStorageController.folderName}", required = true, example = "DOCS") @PathVariable String folderName,
@@ -108,7 +108,7 @@ public class FileStorageController {
 
     @ApiOperation(value = "${FileStorageController.addFileIntoFolder}",
             notes = "${FileStorageController.addFileIntoFolder.notes}")
-    @PostMapping("/folders/{folderName}/files")
+    @PostMapping(API_VERSION + "/folders/{folderName}/files")
     @ResponseBody
     public BSFileInformation addFileIntoFolder(
             @ApiParam(value = "${FileStorageController.folderName}", required = true, example = "DOCS") @PathVariable String folderName,
@@ -146,7 +146,7 @@ public class FileStorageController {
 
     @ApiOperation(value = "${FileStorageController.addFileIntoSpecialFolder}",
             notes = "${FileStorageController.addFileIntoSpecialFolder.notes}")
-    @PostMapping("/special-folders/{specialFolderName}/files")
+    @PostMapping(API_VERSION + "/special-folders/{specialFolderName}/files")
     @ResponseBody
     public BSFileInformation addFileIntoSpecialFolder(
             @ApiParam(value = "${FileStorageController.folderName}", required = true, example = "TALENT") @PathVariable String specialFolderName,
@@ -195,7 +195,7 @@ public class FileStorageController {
 
     @ApiOperation(value = "${FileStorageController.downloadContent}",
             notes = "${FileStorageController.downloadContent.notes}")
-    @GetMapping(value = "/fileInfos/{fileKey}/getContent")
+    @GetMapping(value = API_VERSION + "/fileInfos/{fileKey}/getContent")
     public ResponseEntity<Resource> downloadContent(
             @ApiParam(value = "${FileStorageController.fileKey}", required = true) @PathVariable String fileKey)
             throws NotFound404Exception, Forbidden403Exception, ServerError500Exception {
@@ -232,7 +232,7 @@ public class FileStorageController {
     @ApiOperation(value = "${FileStorageController.updateFileStatus}",
             notes = "${FileStorageController.updateFileStatus.notes}",
             response = BSFileInformation.class)
-    @PatchMapping(value = "/fileInfos/{fileKey}/updateStatus")
+    @PatchMapping(value = API_VERSION + "/fileInfos/{fileKey}/updateStatus")
     public BSFileInformation updateFileStatus(
             @ApiParam(value = "${FileStorageController.fileKey}", required = true) @PathVariable String fileKey,
             @ApiParam(value = "${FileStorageController.softDeleteFile.BSFile}", required = true) @RequestBody BSFile bsFile)
@@ -254,7 +254,7 @@ public class FileStorageController {
 
     @ApiOperation(value = "${FileStorageController.deleteFile}",
             notes = "${FileStorageController.deleteFile.notes}")
-    @DeleteMapping(value = "/fileInfos/{fileKey}")
+    @DeleteMapping(value = API_VERSION + "/fileInfos/{fileKey}")
     @ResponseBody
     public void deleteFile(
             @ApiParam(value = "${FileStorageController.fileKey}", required = true) @PathVariable String fileKey)
@@ -272,7 +272,7 @@ public class FileStorageController {
 
     @ApiOperation(value = "${FileStorageController.softDeleteFile}",
             notes = "${FileStorageController.softDeleteFile.notes}")
-    @DeleteMapping(value = "/fileInfos/{fileKey}/soft")
+    @DeleteMapping(value = API_VERSION + "/fileInfos/{fileKey}/soft")
     @ResponseBody
     public void softDeleteFile(
             @ApiParam(value = "${FileStorageController.fileKey}", required = true) @PathVariable String fileKey)

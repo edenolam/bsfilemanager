@@ -1,9 +1,9 @@
 package com.iorga.cig.bs.FileStorageManager.services;
 
-import com.iorga.cig.bs.FileStorageManager.models.BSFileInformation;
 import com.iorga.cig.bs.FileStorageManager.exceptions.Conflict409Exception;
 import com.iorga.cig.bs.FileStorageManager.exceptions.NotFound404Exception;
 import com.iorga.cig.bs.FileStorageManager.exceptions.ServerError500Exception;
+import com.iorga.cig.bs.FileStorageManager.models.BSFileInformation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
