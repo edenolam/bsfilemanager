@@ -20,6 +20,7 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 public class FileStorageController {
@@ -85,14 +86,15 @@ public class FileStorageController {
             notes = "${FileStorageController.listFilesFromFolder.notes}",
             response = BSFileInformation.class,
             responseContainer = "List")
-    @GetMapping(value = "/owners/{ownerKey}/folders/{folderName}/fileInfos", produces = "application/json")
+    @GetMapping(value = "/folders/{folderName}/fileInfos", produces = "application/json")
     @ResponseBody
     public List<BSFileInformation> listFilesFromFolder(
-            @ApiParam(value = "${FileStorageController.ownerKey}", required = true, example = "CIG-50") @PathVariable String ownerKey,
-            @ApiParam(value = "${FileStorageController.folderName}", required = true, example = "DOCS") @PathVariable String folderName)
+            @ApiParam(value = "${FileStorageController.folderName}", required = true, example = "DOCS") @PathVariable String folderName,
+            @ApiParam(value = "${FileStorageController.targetYear}", example = "2018") @RequestParam Integer targetYear,
+            @ApiParam(value = "${FileStorageController.ownerKey}", example = "CDG-34") @RequestParam String ownerKey)
             throws NotFound404Exception {
 
-        List<BSFileInformation> infos = bsfiRepository.listFilesFromFolder(ownerKey, folderName);
+        List<BSFileInformation> infos = bsfiRepository.listFilesFromFolder(folderName, targetYear, ownerKey);
         if (infos.size() < 1) {
             log.warn(String.format("Ce dossier ne contient aucun fichier (%s)", folderName));
             throw new NotFound404Exception();
