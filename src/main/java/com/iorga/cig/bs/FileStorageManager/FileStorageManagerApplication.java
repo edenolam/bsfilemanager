@@ -30,8 +30,12 @@ public class FileStorageManagerApplication {
 
         @Override
         protected void configure(HttpSecurity http) throws Exception {
+
+            // Disable CSRF
+            http.csrf().disable();
+
             http.authorizeRequests()
-                .antMatchers("/api/**").access(accessIpMask)
+//                .antMatchers("/api/**").access(accessIpMask)
                 .anyRequest().permitAll();
         }
     }
