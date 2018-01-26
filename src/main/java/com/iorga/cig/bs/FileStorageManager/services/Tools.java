@@ -10,17 +10,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
+import java.nio.file.*;
+import java.nio.file.attribute.PosixFilePermission;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.Normalizer;
 import java.time.LocalDate;
-import java.util.Base64;
+import java.util.*;
 
 @Service
 public class Tools {
@@ -41,6 +40,43 @@ public class Tools {
 
     @Value("${nas.archived.afterNDays}")
     private Integer nasArchivedAfterNDays;
+
+    public enum FileTypesEnum {
+        FILES,
+        HEARDERS,
+        SPECIALS,
+        SPECIALS_TEMP;
+    }
+
+    private static final Map<FileTypesEnum, Set<PosixFilePermission>> PERMISSIONS;
+
+    static {
+        PERMISSIONS = new HashMap<>();
+
+        Set<PosixFilePermission> perms = new HashSet<>();
+        perms.add(PosixFilePermission.OWNER_READ);
+        perms.add(PosixFilePermission.OWNER_WRITE);
+        perms.add(PosixFilePermission.GROUP_READ);
+        PERMISSIONS.put(FileTypesEnum.FILES, perms);
+
+        perms = new HashSet<>();
+        perms.add(PosixFilePermission.OWNER_READ);
+        perms.add(PosixFilePermission.OWNER_WRITE);
+        perms.add(PosixFilePermission.GROUP_READ);
+        PERMISSIONS.put(FileTypesEnum.SPECIALS, perms);
+
+        perms = new HashSet<>();
+        perms.add(PosixFilePermission.OWNER_READ);
+        perms.add(PosixFilePermission.OWNER_WRITE);
+        PERMISSIONS.put(FileTypesEnum.HEARDERS, perms);
+
+        perms = new HashSet<>();
+        perms.add(PosixFilePermission.OWNER_READ);
+        perms.add(PosixFilePermission.OWNER_WRITE);
+        perms.add(PosixFilePermission.GROUP_READ);
+        perms.add(PosixFilePermission.GROUP_WRITE);
+        PERMISSIONS.put(FileTypesEnum.SPECIALS_TEMP, perms);
+    }
 
     public static String toHex(byte[] digest) {
         StringBuilder sb = new StringBuilder(digest.length * 2);
@@ -95,6 +131,39 @@ public class Tools {
     }
 
     /**
+     * Affectation des droits d'accès au fichier en fonction de sont types BS
+     * @param pPath path du fichier
+     * @param fileType  type BS du fichier
+     * @return
+     * @throws IOException
+     */
+    private Path setFilePermissions(Path pPath, FileTypesEnum fileType) throws IOException {
+        Files.setPosixFilePermissions(pPath, PERMISSIONS.get(fileType));
+        return pPath;
+    }
+
+    /**
+     * Affectation des droits d'accès au répertoire en fonction de sont types BS
+     * Comme les répertoires *unix doivent avoir le flag "execute" (dangereux pour les fichiers déposés)
+     * on vérifie que cette affectation des droits cible bien un répertoire.
+     * @param pPath path object du répertoire
+     * @param fileType  type de fichier contenus dans ce répertoire
+     * @return
+     * @throws IOException
+     */
+    private Path setDirectoryPermissions(Path pPath, FileTypesEnum fileType) throws IOException {
+        if (!Files.isDirectory(pPath, LinkOption.NOFOLLOW_LINKS)) {
+            log.error("Ce n'est pas le chemin d'accès à un répertoire.", pPath);
+            throw new IOException("Ce n'est pas le chemin d'accès à un répertoire.");
+        }
+        Set<PosixFilePermission> dirPerms = new HashSet<>();
+        dirPerms.addAll(PERMISSIONS.get(fileType));
+        dirPerms.add(PosixFilePermission.OWNER_EXECUTE);
+        Files.setPosixFilePermissions(pPath, dirPerms);
+        return pPath;
+    }
+
+    /**
      * Ecrit les données dans un fichiers dont le chemin est généré automatiquement à partir des informations
      * owner, répertoire virtuel et date du jour
      * @param filePathObj informations relatives au fichier à écrire
@@ -102,13 +171,15 @@ public class Tools {
      * @throws Conflict409Exception
      * @throws ServerError500Exception
      */
-    private Path fileWriteData(Path filePathObj, byte[] data) throws Conflict409Exception, ServerError500Exception {
+    private Path fileWriteData(Path filePathObj, FileTypesEnum fileType, byte[] data)
+            throws Conflict409Exception, ServerError500Exception {
         try {
             boolean fileExists = Files.exists(filePathObj);
             if (!fileExists) {
                 Files.write(filePathObj, data, StandardOpenOption.CREATE_NEW);
-                return filePathObj;
-            } else {
+                return setFilePermissions(filePathObj, fileType);
+            }
+            else {
                 log.warn("Un fichier de même nom existe déjà dans ce dossier", filePathObj);
                 throw new Conflict409Exception("Un fichier de même nom existe déjà dans ce dossier.");
             }
@@ -119,15 +190,16 @@ public class Tools {
         }
     }
 
-    private Path fileWrite(String rootDir, BSFileInformation fileInfos, String fileExt, byte[] data) throws Conflict409Exception, ServerError500Exception {
+    private Path fileWrite(String rootDir, BSFileInformation fileInfos, String fileExt, FileTypesEnum fileType, byte[] data)
+            throws Conflict409Exception, ServerError500Exception {
         try {
             // Initialisation de la structure de répertoire d'acceuil
             LocalDate fileDate = fileInfos.getStorageDate().toLocalDate();
-            Path targetDir = Files.createDirectories(Paths.get(rootDir, String.format("%tY", fileDate), String.format("%tm", fileDate), String.format("%td", fileDate)));
+            Path targetDir = setDirectoryPermissions(Files.createDirectories(Paths.get(rootDir, String.format("%tY", fileDate), String.format("%tm", fileDate), String.format("%td", fileDate))), fileType);
 
             // Initialisation de l'objet de stockage
             Path filePathObj = Paths.get(targetDir.toString(), fileInfos.getStorageHashedFileName() + fileExt);
-            return fileWriteData(filePathObj, data);
+            return fileWriteData(filePathObj, fileType, data);
         }
         catch (IOException ioExceptionObj) {
             log.error("Une erreur est survenue durant l'écriture du fichier", ioExceptionObj);
@@ -136,21 +208,21 @@ public class Tools {
     }
 
     public Path dataFileWrite(BSFileInformation fileInfos, byte[] data) throws Conflict409Exception, ServerError500Exception {
-        return fileWrite(nasActiveRootdir, fileInfos, "", data);
+        return fileWrite(nasActiveRootdir, fileInfos, "", FileTypesEnum.FILES, data);
     }
 
     public Path headerFileWrite(BSFileInformation fileInfos) throws Conflict409Exception, ServerError500Exception {
-        return fileWrite(nasHeaderRootdir, fileInfos, ".bsfh", fileInfos.toHeaderFileData().getBytes());
+        return fileWrite(nasHeaderRootdir, fileInfos, ".bsfh", FileTypesEnum.HEARDERS, fileInfos.toHeaderFileData().getBytes());
     }
 
     public Path semaphoreSpecialFileWrite(BSFileInformation fileInfos, Path dataFilePathObj) throws Conflict409Exception, ServerError500Exception {
         try {
             // Initialisation de la structure de répertoire d'acceuil
-            Path targetDir = Files.createDirectories(Paths.get(nasSpecialRootdir, fileInfos.getLogicalFolder()));
+            Path targetDir = setDirectoryPermissions(Files.createDirectories(Paths.get(nasSpecialRootdir, fileInfos.getLogicalFolder())), FileTypesEnum.SPECIALS);
 
             // Initialisation de l'objet de stockage
             Path semaphoreFilePathObj = Paths.get(targetDir.toString(), fileInfos.getStorageHashedFileName() + ".go");
-            return fileWriteData(semaphoreFilePathObj, fileInfos.toSpecialFileData(dataFilePathObj.toString()).getBytes());
+            return fileWriteData(semaphoreFilePathObj, FileTypesEnum.SPECIALS, fileInfos.toSpecialFileData(dataFilePathObj.toString()).getBytes());
         }
         catch (IOException ioExceptionObj) {
             log.error("Une erreur est survenue durant l'écriture du fichier", ioExceptionObj);
