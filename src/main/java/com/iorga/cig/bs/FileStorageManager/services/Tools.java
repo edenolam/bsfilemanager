@@ -175,6 +175,13 @@ public class Tools {
         return Paths.get(nasHeaderRootdir, String.format("%tY", fileDate), String.format("%tm", fileDate), String.format("%td", fileDate), fileInfos.getStorageHashedFileName() + ".bsfh");
     }
 
+    public void deleteSemaphoreFile(BSFileInformation fileInfos) throws IOException {
+        Path semaphoreFilePathObj = Paths.get(nasSpecialRootdir, fileInfos.getLogicalFolder(), fileInfos.getStorageHashedFileName() + ".go");
+        if (Files.exists(semaphoreFilePathObj)) {
+            Files.delete(semaphoreFilePathObj);
+        }
+    }
+
     /**
      * Suppression physique des fichiers associé aux Informations données
      * @param fileInfos informations concernant le fichier à supprimer
@@ -183,10 +190,7 @@ public class Tools {
     public void deleteFile(BSFileInformation fileInfos) throws ServerError500Exception {
         try {
             if (fileInfos.getIsSpecial()) {
-                Path semaphoreFilePathObj = Paths.get(nasSpecialRootdir, fileInfos.getLogicalFolder(), fileInfos.getStorageHashedFileName() + ".go");
-                if (Files.exists(semaphoreFilePathObj)) {
-                    Files.delete(semaphoreFilePathObj);
-                }
+                deleteSemaphoreFile(fileInfos);
             }
             Path dataFilePathObj = getDataFilePathObj(fileInfos);
             if (Files.exists(dataFilePathObj)) {
@@ -198,8 +202,8 @@ public class Tools {
             }
         }
         catch (IOException ioExceptionObj) {
-            log.error("Une erreur est survenue durant la lecture du fichier", ioExceptionObj);
-            throw new ServerError500Exception("Une erreur est survenue durant la lecture du fichier", ioExceptionObj);
+            log.error("Une erreur est survenue durant la suppression du fichier", ioExceptionObj);
+            throw new ServerError500Exception("Une erreur est survenue durant la suppression du fichier", ioExceptionObj);
         }
     }
 

@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
@@ -235,7 +236,7 @@ public class FileStorageController {
     @PatchMapping(value = API_VERSION + "/fileInfos/{fileKey}/updateStatus")
     public BSFileInformation updateFileStatus(
             @ApiParam(value = "${FileStorageController.fileKey}", required = true) @PathVariable String fileKey,
-            @ApiParam(value = "${FileStorageController.softDeleteFile.BSFile}", required = true) @RequestBody BSFile bsFile)
+            @ApiParam(value = "${FileStorageController.updateFileStatus.BSFile}", required = true) @RequestBody BSFile bsFile)
             throws NotFound404Exception, BadRequest400Exception {
 
         // Vérification des paramètres obligatoire
@@ -249,6 +250,45 @@ public class FileStorageController {
         // Soft Suppression des informations
         fileInfos.setStatus(bsFile.getStatus());
         fileInfos.setStatusLinkedData(bsFile.getStatusLinkedData());
+        return bsfiRepository.save(fileInfos);
+    }
+
+    @ApiOperation(value = "${FileStorageController.updateSpecialFileStatus}",
+            notes = "${FileStorageController.updateSpecialFileStatus.notes}",
+            response = BSFileInformation.class)
+    @PatchMapping(value = API_VERSION + "/fileInfos/{fileKey}/updateSpecialStatus")
+    public BSFileInformation updateSpecialFileStatus(
+            @ApiParam(value = "${FileStorageController.fileKey}", required = true) @PathVariable String fileKey,
+            @ApiParam(value = "${FileStorageController.deleteGo}", example = "true") @RequestParam Boolean deleteGo,
+            @ApiParam(value = "${FileStorageController.updateSpecialFileStatus.BSFile}", required = true) @RequestBody BSFile bsFile)
+            throws NotFound404Exception, BadRequest400Exception, ServerError500Exception {
+
+        // Vérification des paramètres obligatoire
+        if (bsFile.getStatus() == null) {
+            throw new BadRequest400Exception("Une valeur pour le Status est obligatoire pour cette opération.");
+        }
+
+        // Récupération des informations relatives au fichier demandé
+        BSFileInformation fileInfos = getFileInfos(fileKey);
+
+        // Vérification
+        if (!fileInfos.getIsSpecial()) {
+            throw new BadRequest400Exception("Ce fichier n'est pas un fichier spécial.");
+        }
+
+        // Soft Suppression des informations
+        fileInfos.setStatus(bsFile.getStatus());
+        fileInfos.setStatusLinkedData(bsFile.getStatusLinkedData());
+
+        if (deleteGo) {
+            // Suppression du fichier go associé si demandé;
+            try {
+                toolServices.deleteSemaphoreFile(fileInfos);
+            } catch (IOException e) {
+                log.error("Une erreur est survenue durant la suppression du fichier sémaphore", e);
+                throw new ServerError500Exception("Une erreur est survenue durant la suppression du fichier sémaphore.", e);
+            }
+        }
         return bsfiRepository.save(fileInfos);
     }
 
