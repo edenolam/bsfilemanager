@@ -27,4 +27,4 @@ EXPOSE 8080
 
 CMD chown bsfm /logs /nas-drive && sleep 5 && su bsfm -s /bin/sh -c "java -jar FileStorageManager-0.0.1-SNAPSHOT.jar"
 
-COPY --from=build /workspace/target/FileStorageManager-0.0.1-SNAPSHOT.jar /workspace
+COPY --from=build /workspace/target/FileStorageManager-0.0.2-SNAPSHOT.jar /workspace
