@@ -122,7 +122,9 @@ public class Tools {
      * @throws IOException
      */
     private Path setFilePermissions(Path pPath, BSFileType pFileType) throws IOException {
-        Files.setPosixFilePermissions(pPath, pFileType.getNixPerms());
+        if (!isWindowsHost) {
+            Files.setPosixFilePermissions(pPath, pFileType.getNixPerms());
+        }
         return setPathNixGroup(pPath, pFileType);
     }
 
@@ -140,10 +142,12 @@ public class Tools {
             log.error("Ce n'est pas le chemin d'accès à un répertoire.", pPath);
             throw new IOException("Ce n'est pas le chemin d'accès à un répertoire.");
         }
-        Set<PosixFilePermission> dirPerms = new HashSet<>(pFileType.getNixPerms());
-        dirPerms.add(PosixFilePermission.OWNER_EXECUTE);
-        dirPerms.add(PosixFilePermission.GROUP_EXECUTE);
-        Files.setPosixFilePermissions(pPath, dirPerms);
+        if (!isWindowsHost) {
+            Set<PosixFilePermission> dirPerms = new HashSet<>(pFileType.getNixPerms());
+            dirPerms.add(PosixFilePermission.OWNER_EXECUTE);
+            dirPerms.add(PosixFilePermission.GROUP_EXECUTE);
+            Files.setPosixFilePermissions(pPath, dirPerms);
+        }
         return setPathNixGroup(pPath, pFileType);
     }
 
