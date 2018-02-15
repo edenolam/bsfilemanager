@@ -12,7 +12,6 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -24,7 +23,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.Normalizer;
 import java.time.LocalDate;
-import java.util.*;
+import java.util.Base64;
+import java.util.HashSet;
+import java.util.Set;
 
 @Service
 public class Tools {
@@ -45,6 +46,12 @@ public class Tools {
 
     @Value("${nas.archived.afterNDays}")
     private Integer nasArchivedAfterNDays;
+
+    private final static boolean isWindowsHost;
+
+    static {
+        isWindowsHost = System.getProperty("os.name").toLowerCase().startsWith("windows");
+    }
 
     public static String toHex(byte[] digest) {
         StringBuilder sb = new StringBuilder(digest.length * 2);
@@ -100,7 +107,7 @@ public class Tools {
 
 
     private Path setPathNixGroup(Path pPath, BSFileType fileType) throws IOException {
-        if (!StringUtils.isEmpty(fileType.getNixGroup())) {
+        if (!isWindowsHost && !StringUtils.isEmpty(fileType.getNixGroup())) {
             UserPrincipalLookupService lookupService = FileSystems.getDefault().getUserPrincipalLookupService();
             GroupPrincipal group = lookupService.lookupPrincipalByGroupName(fileType.getNixGroup());
             Files.getFileAttributeView(pPath, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS).setGroup(group);
