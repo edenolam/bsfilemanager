@@ -37,7 +37,8 @@ public class FileStorageController {
     /**
      * Récupération des informations relatives au fichier demandé.
      * Avec vérification de la correspondance des informations trouvées avec le owner spécifié.
-     * @param fileKey  identifiant du fichier
+     *
+     * @param fileKey identifiant du fichier
      * @return file informations
      * @throws NotFound404Exception
      */
@@ -76,7 +77,7 @@ public class FileStorageController {
             throws Forbidden403Exception {
 
         List<BSFileInformation> infos = bsfiRepository.findMultipleByFileKeys(fileKeys);
-        if (infos.size() !=  fileKeys.size()) {
+        if (infos.size() != fileKeys.size()) {
             log.error("getMultipleBSFileInfo() appellé avec au moins une fileKey inconnue. Phishing ?");
             throw new Forbidden403Exception("Au moins un fichier n'est pas reconnu.");
         }
@@ -124,7 +125,7 @@ public class FileStorageController {
             String fileHash = toolServices.computeBytesSha256ToBase64(fileContent);
 
             // Mémorisation des informations concernant le fichier
-            BSFileInformation info = BSFileInformation.createNew(bsFile,  folderName, fileContent.length, fileHash);
+            BSFileInformation info = BSFileInformation.createNew(bsFile, folderName, fileContent.length, fileHash);
 
             // Ecrire fichier sur le NAS
             toolServices.dataFileWrite(info, fileContent);
@@ -139,8 +140,7 @@ public class FileStorageController {
                 return null;    // FIXME throw Ex
 
             return info;
-        }
-        catch (NoSuchAlgorithmException e) {
+        } catch (NoSuchAlgorithmException e) {
             throw new ServerError500Exception("SHA256 non supporté.", e);
         }
     }
@@ -233,7 +233,7 @@ public class FileStorageController {
     @ApiOperation(value = "${FileStorageController.updateFileStatus}",
             notes = "${FileStorageController.updateFileStatus.notes}",
             response = BSFileInformation.class)
-    @PatchMapping(value = API_VERSION + "/fileInfos/{fileKey}/updateStatus")
+    @PostMapping(value = API_VERSION + "/fileInfos/{fileKey}/updateStatus")
     public BSFileInformation updateFileStatus(
             @ApiParam(value = "${FileStorageController.fileKey}", required = true) @PathVariable String fileKey,
             @ApiParam(value = "${FileStorageController.updateFileStatus.BSFile}", required = true) @RequestBody BSFile bsFile)
@@ -256,7 +256,7 @@ public class FileStorageController {
     @ApiOperation(value = "${FileStorageController.updateSpecialFileStatus}",
             notes = "${FileStorageController.updateSpecialFileStatus.notes}",
             response = BSFileInformation.class)
-    @PatchMapping(value = API_VERSION + "/fileInfos/{fileKey}/updateSpecialStatus")
+    @PostMapping(value = API_VERSION + "/fileInfos/{fileKey}/updateSpecialStatus")
     public BSFileInformation updateSpecialFileStatus(
             @ApiParam(value = "${FileStorageController.fileKey}", required = true) @PathVariable String fileKey,
             @ApiParam(value = "${FileStorageController.deleteGo}", example = "true") @RequestParam Boolean deleteGo,
