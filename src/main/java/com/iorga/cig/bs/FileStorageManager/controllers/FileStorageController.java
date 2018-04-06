@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -115,7 +116,7 @@ public class FileStorageController {
     public BSFileInformation addFileIntoFolder(
             @ApiParam(value = "${FileStorageController.folderName}", required = true, example = "DOCS") @PathVariable String folderName,
             @ApiParam(value = "${FileStorageController.addFileIntoFolder.bsFile}", required = true) @RequestBody BSFile bsFile)
-            throws Conflict409Exception, ServerError500Exception {
+            throws Conflict409Exception, ServerError500Exception, VirusFound409Exception {
 
         try {
             // Decoding du contenu du fichiers pour écriture disque (NAS)
@@ -152,7 +153,7 @@ public class FileStorageController {
     public BSFileInformation addFileIntoSpecialFolder(
             @ApiParam(value = "${FileStorageController.folderName}", required = true, example = "TALENT") @PathVariable String specialFolderName,
             @ApiParam(value = "${FileStorageController.addFileIntoSpecialFolder.bsFile}", required = true) @RequestBody BSFile bsFile)
-            throws BadRequest400Exception, Conflict409Exception, ServerError500Exception {
+            throws BadRequest400Exception, Conflict409Exception, ServerError500Exception, VirusFound409Exception {
 
         if (bsFile.getExternalRef() == null) {
             throw new BadRequest400Exception("Une référence externe est obligatoire pour le dépot de fichier dans les dossiers spéciaux.");
@@ -324,5 +325,11 @@ public class FileStorageController {
         // Soft Suppression des informations
         fileInfos.setStatus(-1);
         bsfiRepository.save(fileInfos);
+    }
+
+    @ExceptionHandler(VirusFound409Exception.class)
+    public ResponseEntity<String> handleVirusFound409Exception(VirusFound409Exception ex) {
+        // Handle virus found like told in MS spec https://msdn.microsoft.com/en-us/library/dd907072%28v=office.12%29.aspx?f=255&MSPPError=-2147217396
+        return ResponseEntity.status(HttpStatus.CONFLICT).header("x-virus-infected", ex.getMessage()).build();
     }
 }

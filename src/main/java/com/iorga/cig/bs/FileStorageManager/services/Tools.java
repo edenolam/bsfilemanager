@@ -3,8 +3,10 @@ package com.iorga.cig.bs.FileStorageManager.services;
 import com.iorga.cig.bs.FileStorageManager.exceptions.Conflict409Exception;
 import com.iorga.cig.bs.FileStorageManager.exceptions.NotFound404Exception;
 import com.iorga.cig.bs.FileStorageManager.exceptions.ServerError500Exception;
+import com.iorga.cig.bs.FileStorageManager.exceptions.VirusFound409Exception;
 import com.iorga.cig.bs.FileStorageManager.models.BSFileInformation;
 import com.iorga.cig.bs.FileStorageManager.models.BSFileType;
+import fi.solita.clamav.ClamAVClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -46,6 +48,12 @@ public class Tools {
 
     @Value("${nas.archived.afterNDays}")
     private Integer nasArchivedAfterNDays;
+
+    @Value("${clamav.host:clamav}")
+    private String clamavHost;
+
+    @Value("${clamav.port:3310}")
+    private int clamavPort;
 
     private final static boolean isWindowsHost;
 
@@ -179,8 +187,18 @@ public class Tools {
     }
 
     private Path fileWrite(String rootDir, BSFileInformation fileInfos, String fileExt, BSFileType fileType, byte[] data)
-            throws Conflict409Exception, ServerError500Exception {
+            throws Conflict409Exception, ServerError500Exception, VirusFound409Exception {
         try {
+            ClamAVClient clamAVClient = new ClamAVClient(clamavHost, clamavPort);
+            byte[] scanResult;
+            try {
+                scanResult = clamAVClient.scan(data);
+            } catch (Exception e) {
+                throw new ServerError500Exception("Couldn't scan the input", e);
+            }
+            if (!ClamAVClient.isCleanReply(scanResult)) {
+                throw new VirusFound409Exception(new String(scanResult));
+            }
             // Initialisation de la structure de répertoire d'acceuil
             LocalDate fileDate = fileInfos.getStorageDate().toLocalDate();
             Path targetDir = setDirectoryPermissions(Files.createDirectories(Paths.get(rootDir, String.format("%tY", fileDate), String.format("%tm", fileDate), String.format("%td", fileDate))), fileType);
@@ -195,11 +213,11 @@ public class Tools {
         }
     }
 
-    public Path dataFileWrite(BSFileInformation fileInfos, byte[] data) throws Conflict409Exception, ServerError500Exception {
+    public Path dataFileWrite(BSFileInformation fileInfos, byte[] data) throws Conflict409Exception, ServerError500Exception, VirusFound409Exception {
         return fileWrite(nasActiveRootdir, fileInfos, "", BSFileType.FILES, data);
     }
 
-    public Path headerFileWrite(BSFileInformation fileInfos) throws Conflict409Exception, ServerError500Exception {
+    public Path headerFileWrite(BSFileInformation fileInfos) throws Conflict409Exception, ServerError500Exception, VirusFound409Exception {
         return fileWrite(nasHeaderRootdir, fileInfos, ".bsfh", BSFileType.HEARDERS, fileInfos.toHeaderFileData().getBytes());
     }
 

@@ -80,6 +80,14 @@
 			<artifactId>springfox-swagger-ui</artifactId>
 			<version>2.7.0</version>
 		</dependency>
+
+		<!-- ClamAV integration -->
+
+		<dependency>
+			<groupId>fi.solita.clamav</groupId>
+			<artifactId>clamav-client</artifactId>
+			<version>1.0.1</version>
+		</dependency>
 	</dependencies>
 
 	<build>

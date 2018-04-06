@@ -1,4 +1,4 @@
-version: '2.3'
+version: '2.2'
 
 services:
 
@@ -22,6 +22,8 @@ services:
       - bsfm_net
     depends_on:
       mysql:
+        condition: service_started
+      clamav:
         condition: service_started
 
   mysql:
@@ -48,6 +50,12 @@ services:
 #      timeout: 2s
 #      retries: 10
 #      start_period: 10s
+
+  clamav:
+    container_name: clamav
+    image: mkodockx/docker-clamav
+    networks:
+      bsfm_net:
 
 networks:
   bsfm_net:
