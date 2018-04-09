@@ -11,6 +11,24 @@ public class BSFile {
     private Integer status;
     private String statusLinkedData;
 
+
+    public enum Status {
+        SOFT_DELETED(-1),
+        VIRUS_INFECTED(-2),
+        SPECIAL_READY_TO_BE_TREATED(1),
+        AVAILABLE(2),
+        ;
+        private final int status;
+
+        Status(int status) {
+            this.status = status;
+        }
+
+        public int value() {
+            return status;
+        }
+    }
+
     public BSFile() {}
 
     public BSFile(String originalFileName, String fileContentType, String ownerKey, Integer targetYear) {

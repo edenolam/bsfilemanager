@@ -4,17 +4,21 @@ import com.iorga.cig.bs.FileStorageManager.exceptions.Conflict409Exception;
 import com.iorga.cig.bs.FileStorageManager.exceptions.NotFound404Exception;
 import com.iorga.cig.bs.FileStorageManager.exceptions.ServerError500Exception;
 import com.iorga.cig.bs.FileStorageManager.exceptions.VirusFound409Exception;
+import com.iorga.cig.bs.FileStorageManager.models.BSFile;
 import com.iorga.cig.bs.FileStorageManager.models.BSFileInformation;
 import com.iorga.cig.bs.FileStorageManager.models.BSFileType;
 import fi.solita.clamav.ClamAVClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.GroupPrincipal;
@@ -56,6 +60,9 @@ public class Tools {
     private int clamavPort;
 
     private final static boolean isWindowsHost;
+
+    @Autowired
+    private IBSFileInformationRepository bsfiRepository;
 
     static {
         isWindowsHost = System.getProperty("os.name").toLowerCase().startsWith("windows");
@@ -189,16 +196,7 @@ public class Tools {
     private Path fileWrite(String rootDir, BSFileInformation fileInfos, String fileExt, BSFileType fileType, byte[] data)
             throws Conflict409Exception, ServerError500Exception, VirusFound409Exception {
         try {
-            ClamAVClient clamAVClient = new ClamAVClient(clamavHost, clamavPort);
-            byte[] scanResult;
-            try {
-                scanResult = clamAVClient.scan(data);
-            } catch (Exception e) {
-                throw new ServerError500Exception("Couldn't scan the input", e);
-            }
-            if (!ClamAVClient.isCleanReply(scanResult)) {
-                throw new VirusFound409Exception(new String(scanResult));
-            }
+            antivirusScan(data);
             // Initialisation de la structure de répertoire d'acceuil
             LocalDate fileDate = fileInfos.getStorageDate().toLocalDate();
             Path targetDir = setDirectoryPermissions(Files.createDirectories(Paths.get(rootDir, String.format("%tY", fileDate), String.format("%tm", fileDate), String.format("%td", fileDate))), fileType);
@@ -210,6 +208,23 @@ public class Tools {
         catch (IOException ioExceptionObj) {
             log.error("Une erreur est survenue durant l'écriture du fichier", ioExceptionObj);
             throw new ServerError500Exception("Une erreur est survenue durant l'écriture du fichier", ioExceptionObj);
+        }
+    }
+
+    private void antivirusScan(byte[] data) throws ServerError500Exception, VirusFound409Exception {
+        antivirusScan(new ByteArrayInputStream(data));
+    }
+
+    private void antivirusScan(InputStream inputStream) throws ServerError500Exception, VirusFound409Exception {
+        ClamAVClient clamAVClient = new ClamAVClient(clamavHost, clamavPort);
+        byte[] scanResult;
+        try {
+            scanResult = clamAVClient.scan(inputStream);
+        } catch (Exception e) {
+            throw new ServerError500Exception("Couldn't scan the input", e);
+        }
+        if (!ClamAVClient.isCleanReply(scanResult)) {
+            throw new VirusFound409Exception(new String(scanResult));
         }
     }
 
@@ -294,10 +309,19 @@ public class Tools {
      * @throws NotFound404Exception
      * @throws ServerError500Exception
      */
-    public InputStreamResource getFileContentAsInputStream(BSFileInformation fileInfos) throws NotFound404Exception, ServerError500Exception {
+    public InputStreamResource getFileContentAsInputStream(BSFileInformation fileInfos) throws NotFound404Exception, ServerError500Exception, VirusFound409Exception {
         try {
             Path filePathObj = getDataFilePathObj(fileInfos);
+
             if (Files.exists(filePathObj)) {
+                try {
+                    antivirusScan(Files.newInputStream(filePathObj));
+                } catch (VirusFound409Exception e) {
+                    fileInfos.setStatus(BSFile.Status.VIRUS_INFECTED.value());
+                    fileInfos.setStatusLinkedData(e.getMessage());
+                    bsfiRepository.save(fileInfos);
+                    throw e;
+                }
                 return new InputStreamResource(Files.newInputStream(filePathObj));
             } else {
                 throw new NotFound404Exception();

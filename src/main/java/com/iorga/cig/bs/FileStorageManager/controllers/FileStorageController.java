@@ -7,6 +7,8 @@ import com.iorga.cig.bs.FileStorageManager.services.IBSFileInformationRepository
 import com.iorga.cig.bs.FileStorageManager.services.Tools;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.ApiResponse;
+import io.swagger.annotations.ApiResponses;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -111,6 +113,10 @@ public class FileStorageController {
 
     @ApiOperation(value = "${FileStorageController.addFileIntoFolder}",
             notes = "${FileStorageController.addFileIntoFolder.notes}")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "File successfully added to folder"),
+            @ApiResponse(code = 409, message = "Either the file with the same name already exists or there is a virus inside (in this case, an additional header in the reply is added: x-virus-infected)"),
+    })
     @PostMapping(API_VERSION + "/folders/{folderName}/files")
     @ResponseBody
     public BSFileInformation addFileIntoFolder(
@@ -133,8 +139,7 @@ public class FileStorageController {
             // Ecrire fichier "header" sur le NAS
             toolServices.headerFileWrite(info);
 
-            //TODO Status permet de gérer les fichiers dispo, en attente de check anti-virus, archivés, ...
-            info.setStatus(2);
+            info.setStatus(BSFile.Status.AVAILABLE.value());
 
             info = bsfiRepository.save(info);
             if (info == null)
@@ -148,6 +153,10 @@ public class FileStorageController {
 
     @ApiOperation(value = "${FileStorageController.addFileIntoSpecialFolder}",
             notes = "${FileStorageController.addFileIntoSpecialFolder.notes}")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "File successfully added to a \"special\" folder"),
+            @ApiResponse(code = 409, message = "Either the file with the same name already exists or there is a virus inside (in this case, an additional header in the reply is added: x-virus-infected)"),
+    })
     @PostMapping(API_VERSION + "/special-folders/{specialFolderName}/files")
     @ResponseBody
     public BSFileInformation addFileIntoSpecialFolder(
@@ -181,8 +190,7 @@ public class FileStorageController {
             // Ecriture du fichier semaphore permettant le traitement special
             toolServices.semaphoreSpecialFileWrite(info, dataFilePathObj);
 
-            // Status = 1 prêt pour être traité
-            info.setStatus(1);
+            info.setStatus(BSFile.Status.SPECIAL_READY_TO_BE_TREATED.value());
             bsfiRepository.save(info);
 
             return info;
@@ -197,18 +205,26 @@ public class FileStorageController {
 
     @ApiOperation(value = "${FileStorageController.downloadContent}",
             notes = "${FileStorageController.downloadContent.notes}")
+    @ApiResponses(value = {
+            @ApiResponse(code = 409, message = "There is a virus inside (an additional header in the reply is added: x-virus-infected)"),
+    })
     @GetMapping(value = API_VERSION + "/fileInfos/{fileKey}/getContent")
     public ResponseEntity<Resource> downloadContent(
             @ApiParam(value = "${FileStorageController.fileKey}", required = true) @PathVariable String fileKey)
-            throws NotFound404Exception, Forbidden403Exception, ServerError500Exception {
+            throws NotFound404Exception, Forbidden403Exception, ServerError500Exception, VirusFound409Exception {
 
         // Récupération des informations relatives au fichier demandé
         BSFileInformation fileInfos = getFileInfos(fileKey);
 
         // Tests status (disponibilité)
-        if (fileInfos.getStatus() == -1) {
+        if (fileInfos.getStatus() == BSFile.Status.SOFT_DELETED.value()) {
             log.warn(String.format("Le fichier demandé a été supprimé (%s)", fileKey));
             throw new Forbidden403Exception("Le fichier demandé a été supprimé");
+        }
+        if (fileInfos.getStatus() == BSFile.Status.VIRUS_INFECTED.value()) {
+            String statusLinkedData = fileInfos.getStatusLinkedData();
+            log.warn(String.format("Le fichier %s est infecté par %s", fileKey, statusLinkedData));
+            throw new VirusFound409Exception(statusLinkedData);
         }
 
         // Ajout des http headers permettant la récupération sous forme de téléchargement
@@ -323,7 +339,7 @@ public class FileStorageController {
         BSFileInformation fileInfos = getFileInfos(fileKey);
 
         // Soft Suppression des informations
-        fileInfos.setStatus(-1);
+        fileInfos.setStatus(BSFile.Status.SOFT_DELETED.value());
         bsfiRepository.save(fileInfos);
     }
 
