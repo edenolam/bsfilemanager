@@ -270,12 +270,12 @@ public class FileStorageController {
     @ApiOperation(value = "${FileStorageController.downloadContent}",
             notes = "${FileStorageController.downloadContent.notes}")
     @ApiResponses(value = {
-            @ApiResponse(code = 409, message = "There is a virus inside (an additional header in the reply is added: x-virus-infected)"),
+            @ApiResponse(code = 409, message = "There is a virus inside (an additional header in the reply is added: x-virus-infected) or the checksum failed"),
     })
     @GetMapping(value = API_VERSION + "/fileInfos/{fileKey}/getContent")
     public ResponseEntity<Resource> downloadContent(
             @ApiParam(value = "${FileStorageController.fileKey}", required = true) @PathVariable String fileKey)
-            throws NotFound404Exception, Forbidden403Exception, ServerError500Exception, VirusFound409Exception {
+            throws NotFound404Exception, Forbidden403Exception, ServerError500Exception, VirusFound409Exception, Conflict409Exception {
 
         // Récupération des informations relatives au fichier demandé
         BSFileInformation fileInfos = getFileInfosForDownload(fileKey);
@@ -300,12 +300,12 @@ public class FileStorageController {
             notes = "${FileStorageController.downloadPublicContent.notes}")
     @ApiResponses(value = {
             @ApiResponse(code = 403, message = "This is not a PUBLIC file"),
-            @ApiResponse(code = 409, message = "There is a virus inside (an additional header in the reply is added: x-virus-infected)"),
+            @ApiResponse(code = 409, message = "There is a virus inside (an additional header in the reply is added: x-virus-infected) or the checksum failed"),
     })
     @GetMapping(value = API_VERSION + "/fileInfos/{fileKey}/getPublicContent")
     public ResponseEntity<Resource> downloadPublicContent(
             @ApiParam(value = "${FileStorageController.fileKey}", required = true) @PathVariable String fileKey)
-            throws NotFound404Exception, Forbidden403Exception, ServerError500Exception, VirusFound409Exception {
+            throws NotFound404Exception, Forbidden403Exception, ServerError500Exception, VirusFound409Exception, Conflict409Exception {
 
         // Récupération des informations relatives au fichier demandé
         BSFileInformation fileInfos = getFileInfosForDownload(fileKey);

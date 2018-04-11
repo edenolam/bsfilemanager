@@ -18,7 +18,6 @@ import org.springframework.util.StringUtils;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.GroupPrincipal;
@@ -82,12 +81,6 @@ public class Tools {
         return Base64.getEncoder().encodeToString(digester.digest());
     }
 
-//    public String computefileContentSha256ToBase64(File file) throws NoSuchAlgorithmException, IOException {
-//        byte[] data = Files.readAllBytes(file.toPath());
-//        return computeBytesSha256ToBase64(data);
-//    }
-//
-//
     public static String toBase64(byte[] bytes, boolean urlSafe) {
         String retVal = Base64.getEncoder().encodeToString(bytes);
         return (urlSafe)
@@ -211,17 +204,20 @@ public class Tools {
         }
     }
 
+    /**
+     * Effectue un scan antivirus sur les données retournées par l'inputStream
+     * @param data données à vérifier
+     * @throws ServerError500Exception  Une erreur est survenu durant l'opération externe de scanning
+     * @throws VirusFound409Exception   Le flux contient potentiellement un virus
+     */
     private void antivirusScan(byte[] data) throws ServerError500Exception, VirusFound409Exception {
-        antivirusScan(new ByteArrayInputStream(data));
-    }
-
-    private void antivirusScan(InputStream inputStream) throws ServerError500Exception, VirusFound409Exception {
-        ClamAVClient clamAVClient = new ClamAVClient(clamavHost, clamavPort);
+        // Initialisation d'un client AV (timeout de 60 secondes pour les opérations réseau de AV au lieu de 500 ms)
+        ClamAVClient clamAVClient = new ClamAVClient(clamavHost, clamavPort, 60000);
         byte[] scanResult;
         try {
-            scanResult = clamAVClient.scan(inputStream);
+            scanResult = clamAVClient.scan(data);
         } catch (Exception e) {
-            throw new ServerError500Exception("Couldn't scan the input", e);
+            throw new ServerError500Exception("Couldn't scan the input. Cause: " + e.getMessage(), e);
         }
         if (!ClamAVClient.isCleanReply(scanResult)) {
             throw new VirusFound409Exception(new String(scanResult));
@@ -309,23 +305,33 @@ public class Tools {
      * @throws NotFound404Exception
      * @throws ServerError500Exception
      */
-    public InputStreamResource getFileContentAsInputStream(BSFileInformation fileInfos) throws NotFound404Exception, ServerError500Exception, VirusFound409Exception {
+    public InputStreamResource getFileContentAsInputStream(BSFileInformation fileInfos)
+            throws NotFound404Exception, ServerError500Exception, VirusFound409Exception, Conflict409Exception {
         try {
             Path filePathObj = getDataFilePathObj(fileInfos);
 
             if (Files.exists(filePathObj)) {
-                try {
-                    // TODO Vérifie que le contenu n'a pas été modifié
+                // Lecture du fichier en memoire pour permettre réutilisation
+                byte[] data = Files.readAllBytes(filePathObj);
 
-                    // Check le contenu pour des virus qui serait détecté depuis le jour du dépot.
-                    antivirusScan(Files.newInputStream(filePathObj));
-                } catch (VirusFound409Exception e) {
+                // Vérifie que le contenu n'a pas été modifié
+                String storedFileHash = computeBytesSha256ToBase64(data);
+                if (!storedFileHash.equals(fileInfos.getFileContentHash())) {
+                    log.error("Le contenu du fichier a été modifié de manière non controlée.", filePathObj);
+                    throw new Conflict409Exception("Le contenu du fichier n'est pas cohérent (modification non controlée).");
+                }
+
+                // Check le contenu pour des virus qui serait détecté depuis le jour du dépot.
+                try {
+                    antivirusScan(data);
+                }
+                catch (VirusFound409Exception e) {
                     fileInfos.setStatus(BSFile.Status.VIRUS_INFECTED.value());
                     fileInfos.setStatusLinkedData(e.getMessage());
                     bsfiRepository.save(fileInfos);
                     throw e;
                 }
-                return new InputStreamResource(Files.newInputStream(filePathObj));
+                return new InputStreamResource(new ByteArrayInputStream(data));
             } else {
                 throw new NotFound404Exception();
             }
@@ -333,6 +339,9 @@ public class Tools {
         catch (IOException ioExceptionObj) {
             log.error("Une erreur est survenue durant la lecture du fichier", ioExceptionObj);
             throw new ServerError500Exception("Une erreur est survenue durant la lecture du fichier", ioExceptionObj);
+        } catch (NoSuchAlgorithmException e) {
+            log.error("Une erreur est survenue durant le calcul du hash du fichier", e);
+            throw new ServerError500Exception("Une erreur est survenue durant la vérification de l'intégrité du fichier", e);
         }
     }
 
