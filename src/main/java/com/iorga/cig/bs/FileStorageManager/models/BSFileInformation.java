@@ -56,20 +56,33 @@ public class BSFileInformation {
     @Column(nullable = false)
     private Boolean isSpecial = false;
 
-    protected BSFileInformation() {}
+    @Column(nullable = false)
+    private Boolean isPublic = false;
+
+    @Column(nullable = false)
+    private Boolean isAttachment = true;
+
+    protected BSFileInformation() {
+    }
 
     private BSFileInformation(String fileKey) {
         this.fileKey = fileKey;
         this.storageDate = Date.valueOf(LocalDate.now());
         this.status = 0;
         this.isSpecial = false;
+        this.isPublic = false;
+        this.isAttachment = true;
     }
 
-    private static BSFileInformation createNew(BSFile bsFile, String folderName, Integer fileContentSize, String fileContentHash, boolean isSpecial)
+    private static BSFileInformation createNew(BSFile bsFile, String folderName, Integer fileContentSize, String fileContentHash,
+                                               boolean isSpecial, boolean isPublic)
             throws NoSuchAlgorithmException {
+
         // Calcul du nom de stockage du fichier qui doit être unique
-        String computedFileName = String.format("%s/%s/%d/%s/%s",
+        String computedFileName = String.format("%s/%s/%s/%s/%d/%s/%s",
                 bsFile.getOwnerKey(),
+                isSpecial,
+                isPublic,
                 folderName,
                 bsFile.getTargetYear(),
                 bsFile.getExternalRef() != null ? bsFile.getExternalRef() : "-",
@@ -88,18 +101,27 @@ public class BSFileInformation {
         info.setStorageHashedFileName(Tools.toHex(fileKeyBuffer));
         info.setOwnerKey(bsFile.getOwnerKey());
         info.setExternalRef(bsFile.getExternalRef());
+        info.setIsAttachment(bsFile.getIsAttachment());
+        // Special/Public file ?
         info.setIsSpecial(isSpecial);
+        info.setIsPublic(isPublic);
         return info;
     }
 
     public static BSFileInformation createNew(BSFile bsFile, String folderName, Integer fileContentSize, String fileContentHash)
             throws NoSuchAlgorithmException {
-        return createNew(bsFile, folderName, fileContentSize, fileContentHash, false);
+
+        return createNew(bsFile, folderName, fileContentSize, fileContentHash, false, false);
     }
 
     public static BSFileInformation createNewSpecial(BSFile bsFile, String folderName, Integer fileContentSize, String fileContentHash)
             throws NoSuchAlgorithmException {
-        return createNew(bsFile, folderName, fileContentSize, fileContentHash, true);
+        return createNew(bsFile, folderName, fileContentSize, fileContentHash, true, false);
+    }
+
+    public static BSFileInformation createNewPublic(BSFile bsFile, String folderName, Integer fileContentSize, String fileContentHash)
+            throws NoSuchAlgorithmException {
+        return createNew(bsFile, folderName, fileContentSize, fileContentHash, false, true);
     }
 
     public Long getId() {
@@ -110,15 +132,19 @@ public class BSFileInformation {
         this.id = id;
     }
 
-    public String getFileKey() { return fileKey; }
+    public String getFileKey() {
+        return fileKey;
+    }
 
-    protected void setFileKey(String fileKey) { this.fileKey = fileKey; }
+    protected void setFileKey(String fileKey) {
+        this.fileKey = fileKey;
+    }
 
     public String getOriginalFileName() {
         return originalFileName;
     }
 
-    protected void setOriginalFileName(String originalFileName) {
+    private void setOriginalFileName(String originalFileName) {
         this.originalFileName = originalFileName;
     }
 
@@ -126,7 +152,7 @@ public class BSFileInformation {
         return storageHashedFileName;
     }
 
-    protected void setStorageHashedFileName(String storageHashedFileName) {
+    private void setStorageHashedFileName(String storageHashedFileName) {
         this.storageHashedFileName = storageHashedFileName;
     }
 
@@ -142,7 +168,7 @@ public class BSFileInformation {
         return fileContentType;
     }
 
-    protected void setFileContentType(String fileContentType) {
+    private void setFileContentType(String fileContentType) {
         this.fileContentType = fileContentType;
     }
 
@@ -150,7 +176,7 @@ public class BSFileInformation {
         return logicalFolder;
     }
 
-    protected void setLogicalFolder(String logicalFolder) {
+    private void setLogicalFolder(String logicalFolder) {
         this.logicalFolder = logicalFolder;
     }
 
@@ -166,7 +192,7 @@ public class BSFileInformation {
         return fileContentHash;
     }
 
-    protected void setFileContentHash(String fileContentHash) {
+    private void setFileContentHash(String fileContentHash) {
         this.fileContentHash = fileContentHash;
     }
 
@@ -174,7 +200,7 @@ public class BSFileInformation {
         return fileContentSize;
     }
 
-    protected void setFileContentSize(Integer fileContentSize) {
+    private void setFileContentSize(Integer fileContentSize) {
         this.fileContentSize = fileContentSize;
     }
 
@@ -186,21 +212,53 @@ public class BSFileInformation {
         this.status = status;
     }
 
-    public Integer getTargetYear() { return targetYear; }
+    public Integer getTargetYear() {
+        return targetYear;
+    }
 
-    protected void setTargetYear(Integer targetYear) { this.targetYear = targetYear; }
+    private void setTargetYear(Integer targetYear) {
+        this.targetYear = targetYear;
+    }
 
-    public String getExternalRef() { return externalRef; }
+    public String getExternalRef() {
+        return externalRef;
+    }
 
-    protected void setExternalRef(String externalRef) { this.externalRef = externalRef; }
+    private void setExternalRef(String externalRef) {
+        this.externalRef = externalRef;
+    }
 
-    public Boolean getIsSpecial() { return isSpecial; }
+    public Boolean getIsSpecial() {
+        return isSpecial;
+    }
 
-    protected void setIsSpecial(Boolean special) { this.isSpecial = special; }
+    private void setIsSpecial(Boolean special) {
+        this.isSpecial = special;
+    }
 
-    public String getStatusLinkedData() { return statusLinkedData; }
+    public Boolean getIsPublic() {
+        return isPublic;
+    }
 
-    public void setStatusLinkedData(String statusLinkedData) { this.statusLinkedData = statusLinkedData; }
+    private void setIsPublic(Boolean pIsPublic) {
+        this.isPublic = pIsPublic;
+    }
+
+    public Boolean getIsAttachment() {
+        return isAttachment;
+    }
+
+    private void setIsAttachment(Boolean pIsAttachment) {
+        this.isAttachment = pIsAttachment;
+    }
+
+    public String getStatusLinkedData() {
+        return statusLinkedData;
+    }
+
+    public void setStatusLinkedData(String statusLinkedData) {
+        this.statusLinkedData = statusLinkedData;
+    }
 
     @Override
     public String toString() {
@@ -211,12 +269,15 @@ public class BSFileInformation {
 
     /**
      * Ecriture du fichier de controle avec dans l'ordre les informations suivantes:
-     * fileKey, ownerKey, logicalFolder, storageDate, originalFileName, fileContentType, fileContentSize, fileContentHash, targetYear, externalRef, isSpecial
+     * fileKey, ownerKey, logicalFolder, storageDate, originalFileName, fileContentType, fileContentSize,
+     * fileContentHash, targetYear, externalRef, isSpecial, isPublic, isAttachment
+     *
      * @return
      */
     public String toHeaderFileData() {
-        return String.format("%1$s%n%2$s%n%3$s%n%4$tY-%4$tm-%4$td%n%5$s%n%6$s%n%7$d%n%8$s%n%9$d%n%10$s%n%11$s%n",
-                fileKey, ownerKey, logicalFolder, storageDate, originalFileName, fileContentType, fileContentSize, fileContentHash, targetYear, externalRef, isSpecial);
+        return String.format("%1$s%n%2$s%n%3$s%n%4$tY-%4$tm-%4$td%n%5$s%n%6$s%n%7$d%n%8$s%n%9$d%n%10$s%n%11$s%n%12$s%n%13$s%n",
+                fileKey, ownerKey, logicalFolder, storageDate, originalFileName, fileContentType, fileContentSize,
+                fileContentHash, targetYear, externalRef, isSpecial, isPublic, isAttachment);
     }
 
     public String toSpecialFileData(String dataFilePath) {

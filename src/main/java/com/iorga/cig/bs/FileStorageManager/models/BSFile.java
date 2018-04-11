@@ -10,14 +10,14 @@ public class BSFile {
     private String externalRef;
     private Integer status;
     private String statusLinkedData;
+    private Boolean isAttachment;
 
 
     public enum Status {
         SOFT_DELETED(-1),
         VIRUS_INFECTED(-2),
         SPECIAL_READY_TO_BE_TREATED(1),
-        AVAILABLE(2),
-        ;
+        AVAILABLE(2),;
         private final int status;
 
         Status(int status) {
@@ -29,13 +29,16 @@ public class BSFile {
         }
     }
 
-    public BSFile() {}
+    public BSFile() {
+        this.isAttachment = true;
+    }
 
-    public BSFile(String originalFileName, String fileContentType, String ownerKey, Integer targetYear) {
+    public BSFile(String originalFileName, String fileContentType, String ownerKey, Integer targetYear, Boolean isAttachment) {
         this.originalFileName = originalFileName;
         this.fileContentType = fileContentType;
         this.ownerKey = ownerKey;
         this.targetYear = targetYear;
+        this.isAttachment = isAttachment;
     }
 
     public String getOriginalFileName() {
@@ -78,15 +81,35 @@ public class BSFile {
         this.targetYear = targetYear;
     }
 
-    public String getExternalRef() { return externalRef; }
+    public String getExternalRef() {
+        return externalRef;
+    }
 
-    public void setExternalRef(String externalRef) { this.externalRef = externalRef; }
+    public void setExternalRef(String externalRef) {
+        this.externalRef = externalRef;
+    }
 
-    public Integer getStatus() { return status; }
+    public Integer getStatus() {
+        return status;
+    }
 
-    public void setStatus(Integer status) { this.status = status; }
+    public void setStatus(Integer status) {
+        this.status = status;
+    }
 
-    public String getStatusLinkedData() { return statusLinkedData; }
+    public String getStatusLinkedData() {
+        return statusLinkedData;
+    }
 
-    public void setStatusLinkedData(String statusLinkedData) { this.statusLinkedData = statusLinkedData;    }
+    public void setStatusLinkedData(String statusLinkedData) {
+        this.statusLinkedData = statusLinkedData;
+    }
+
+    public Boolean getIsAttachment() {
+        return isAttachment;
+    }
+
+    private void setIsAttachment(Boolean pIsAttachment) {
+        this.isAttachment = pIsAttachment;
+    }
 }

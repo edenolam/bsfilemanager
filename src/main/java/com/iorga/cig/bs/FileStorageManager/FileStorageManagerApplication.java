@@ -37,6 +37,9 @@ public class FileStorageManagerApplication {
             http.authorizeRequests()
 //                .antMatchers("/api/**").access(accessIpMask)
                 .anyRequest().permitAll();
+
+            // Activation du cache par défaut
+            http.headers().cacheControl().disable();
         }
     }
 }

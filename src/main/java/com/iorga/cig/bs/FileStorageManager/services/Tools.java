@@ -315,6 +315,9 @@ public class Tools {
 
             if (Files.exists(filePathObj)) {
                 try {
+                    // TODO Vérifie que le contenu n'a pas été modifié
+
+                    // Check le contenu pour des virus qui serait détecté depuis le jour du dépot.
                     antivirusScan(Files.newInputStream(filePathObj));
                 } catch (VirusFound409Exception e) {
                     fileInfos.setStatus(BSFile.Status.VIRUS_INFECTED.value());
