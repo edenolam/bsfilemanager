@@ -16,8 +16,7 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.GroupPrincipal;
@@ -75,6 +74,22 @@ public class Tools {
         return sb.toString();
     }
 
+    public String computeFileSha256ToBase64(File file) throws NoSuchAlgorithmException, NotFound404Exception, ServerError500Exception {
+        byte[] buffer = new byte[8192];
+        int count;
+        MessageDigest digester = MessageDigest.getInstance("SHA-256");
+        try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file))) {
+            while ((count = bis.read(buffer)) > 0) {
+                digester.update(buffer, 0, count);
+            }
+        } catch (FileNotFoundException e) {
+            throw new NotFound404Exception();
+        } catch (IOException e) {
+            throw new ServerError500Exception("Erreur de lecture du fichier.", e);
+        }
+        return Base64.getEncoder().encodeToString(digester.digest());
+    }
+
     public String computeBytesSha256ToBase64(byte[] bytes) throws NoSuchAlgorithmException {
         MessageDigest digester = MessageDigest.getInstance("SHA-256");
         digester.update(bytes);
@@ -122,10 +137,12 @@ public class Tools {
         }
         return pPath;
     }
+
     /**
      * Affectation des droits d'accès au fichier en fonction de sont types BS
-     * @param pPath path du fichier
-     * @param pFileType  type BS du fichier
+     *
+     * @param pPath     path du fichier
+     * @param pFileType type BS du fichier
      * @return
      * @throws IOException
      */
@@ -140,8 +157,9 @@ public class Tools {
      * Affectation des droits d'accès au répertoire en fonction de sont types BS
      * Comme les répertoires *unix doivent avoir le flag "execute" (dangereux pour les fichiers déposés)
      * on vérifie que cette affectation des droits cible bien un répertoire.
-     * @param pPath path object du répertoire
-     * @param pFileType  type de fichier contenus dans ce répertoire
+     *
+     * @param pPath     path object du répertoire
+     * @param pFileType type de fichier contenus dans ce répertoire
      * @return
      * @throws IOException
      */
@@ -162,8 +180,9 @@ public class Tools {
     /**
      * Ecrit les données dans un fichiers dont le chemin est généré automatiquement à partir des informations
      * owner, répertoire virtuel et date du jour
+     *
      * @param filePathObj informations relatives au fichier à écrire
-     * @param data      données à écrire
+     * @param data        données à écrire
      * @throws Conflict409Exception
      * @throws ServerError500Exception
      */
@@ -174,13 +193,11 @@ public class Tools {
             if (!fileExists) {
                 Files.write(filePathObj, data, StandardOpenOption.CREATE_NEW);
                 return setFilePermissions(filePathObj, fileType);
-            }
-            else {
+            } else {
                 log.warn("Un fichier de même nom existe déjà dans ce dossier", filePathObj);
                 throw new Conflict409Exception("Un fichier de même nom existe déjà dans ce dossier.");
             }
-        }
-        catch (IOException ioExceptionObj) {
+        } catch (IOException ioExceptionObj) {
             log.error("Une erreur est survenue durant l'écriture du fichier", ioExceptionObj);
             throw new ServerError500Exception("Une erreur est survenue durant l'écriture du fichier", ioExceptionObj);
         }
@@ -188,8 +205,13 @@ public class Tools {
 
     private Path fileWrite(String rootDir, BSFileInformation fileInfos, String fileExt, BSFileType fileType, byte[] data)
             throws Conflict409Exception, ServerError500Exception, VirusFound409Exception {
+        antivirusScan(data);
+        return internalFileWrite(rootDir, fileInfos, fileExt, fileType, data);
+    }
+
+    private Path internalFileWrite(String rootDir, BSFileInformation fileInfos, String fileExt, BSFileType fileType, byte[] data)
+            throws Conflict409Exception, ServerError500Exception {
         try {
-            antivirusScan(data);
             // Initialisation de la structure de répertoire d'acceuil
             LocalDate fileDate = fileInfos.getStorageDate().toLocalDate();
             Path targetDir = setDirectoryPermissions(Files.createDirectories(Paths.get(rootDir, String.format("%tY", fileDate), String.format("%tm", fileDate), String.format("%td", fileDate))), fileType);
@@ -197,8 +219,7 @@ public class Tools {
             // Initialisation de l'objet de stockage
             Path filePathObj = Paths.get(targetDir.toString(), fileInfos.getStorageHashedFileName() + fileExt);
             return fileWriteData(filePathObj, fileType, data);
-        }
-        catch (IOException ioExceptionObj) {
+        } catch (IOException ioExceptionObj) {
             log.error("Une erreur est survenue durant l'écriture du fichier", ioExceptionObj);
             throw new ServerError500Exception("Une erreur est survenue durant l'écriture du fichier", ioExceptionObj);
         }
@@ -206,9 +227,10 @@ public class Tools {
 
     /**
      * Effectue un scan antivirus sur les données retournées par l'inputStream
+     *
      * @param data données à vérifier
-     * @throws ServerError500Exception  Une erreur est survenu durant l'opération externe de scanning
-     * @throws VirusFound409Exception   Le flux contient potentiellement un virus
+     * @throws ServerError500Exception Une erreur est survenu durant l'opération externe de scanning
+     * @throws VirusFound409Exception  Le flux contient potentiellement un virus
      */
     private void antivirusScan(byte[] data) throws ServerError500Exception, VirusFound409Exception {
         // Initialisation d'un client AV (timeout de 60 secondes pour les opérations réseau de AV au lieu de 500 ms)
@@ -228,8 +250,34 @@ public class Tools {
         return fileWrite(nasActiveRootdir, fileInfos, "", BSFileType.FILES, data);
     }
 
-    public Path headerFileWrite(BSFileInformation fileInfos) throws Conflict409Exception, ServerError500Exception, VirusFound409Exception {
-        return fileWrite(nasHeaderRootdir, fileInfos, ".bsfh", BSFileType.HEARDERS, fileInfos.toHeaderFileData().getBytes());
+    public Path moveBSLTMFile(BSFileInformation fileInfos, Path ltFilePath) throws Conflict409Exception, ServerError500Exception {
+        //return fileWrite(nasActiveRootdir, fileInfos, "", BSFileType.FILES, data);
+        try {
+            // Initialisation de la structure de répertoire d'acceuil
+            LocalDate fileDate = fileInfos.getStorageDate().toLocalDate();
+            Path targetDir = setDirectoryPermissions(
+                    Files.createDirectories(Paths.get(nasActiveRootdir, String.format("%tY", fileDate), String.format("%tm", fileDate), String.format("%td", fileDate))),
+                    BSFileType.FILES);
+
+            // Initialisation de l'objet de stockage
+            Path filePathObj = Paths.get(targetDir.toString(), fileInfos.getStorageHashedFileName());
+
+            boolean fileExists = Files.exists(filePathObj);
+            if (!fileExists) {
+                Files.move(ltFilePath, filePathObj);
+                return setFilePermissions(filePathObj, BSFileType.FILES);
+            } else {
+                log.warn("Un fichier de même nom existe déjà dans ce dossier", filePathObj);
+                throw new Conflict409Exception("Un fichier de même nom existe déjà dans ce dossier.");
+            }
+        } catch (IOException ioExceptionObj) {
+            log.error("Une erreur est survenue durant l'écriture du fichier", ioExceptionObj);
+            throw new ServerError500Exception("Une erreur est survenue durant l'écriture du fichier", ioExceptionObj);
+        }
+    }
+
+    public Path headerFileWrite(BSFileInformation fileInfos) throws Conflict409Exception, ServerError500Exception {
+        return internalFileWrite(nasHeaderRootdir, fileInfos, ".bsfh", BSFileType.HEARDERS, fileInfos.toHeaderFileData().getBytes());
     }
 
     public Path semaphoreSpecialFileWrite(BSFileInformation fileInfos, Path dataFilePathObj) throws Conflict409Exception, ServerError500Exception {
@@ -240,8 +288,7 @@ public class Tools {
             // Initialisation de l'objet de stockage
             Path semaphoreFilePathObj = Paths.get(targetDir.toString(), fileInfos.getStorageHashedFileName() + ".go");
             return fileWriteData(semaphoreFilePathObj, BSFileType.SPECIALS, fileInfos.toSpecialFileData(dataFilePathObj.toString()).getBytes());
-        }
-        catch (IOException ioExceptionObj) {
+        } catch (IOException ioExceptionObj) {
             log.error("Une erreur est survenue durant l'écriture du fichier", ioExceptionObj);
             throw new ServerError500Exception("Une erreur est survenue durant l'écriture du fichier", ioExceptionObj);
         }
@@ -273,6 +320,7 @@ public class Tools {
 
     /**
      * Suppression physique des fichiers associé aux Informations données
+     *
      * @param fileInfos informations concernant le fichier à supprimer
      * @throws ServerError500Exception
      */
@@ -289,8 +337,7 @@ public class Tools {
             if (Files.exists(headerFilePathObj)) {
                 Files.delete(headerFilePathObj);
             }
-        }
-        catch (IOException ioExceptionObj) {
+        } catch (IOException ioExceptionObj) {
             log.error("Une erreur est survenue durant la suppression du fichier", ioExceptionObj);
             throw new ServerError500Exception("Une erreur est survenue durant la suppression du fichier", ioExceptionObj);
         }
@@ -300,6 +347,7 @@ public class Tools {
      * Ouvre une stream de lecture vers le fichier associé aux informations fournies.
      * En fonction de l'ancienneté de la création de l'élément et de l'activation ou non de l'archivage,
      * le répertoire racine est modifié automatiquement.
+     *
      * @param fileInfos informations relatives au fichier à charger.
      * @return une stream de lecture du fichier associé.
      * @throws NotFound404Exception
@@ -324,8 +372,7 @@ public class Tools {
                 // Check le contenu pour des virus qui serait détecté depuis le jour du dépot.
                 try {
                     antivirusScan(data);
-                }
-                catch (VirusFound409Exception e) {
+                } catch (VirusFound409Exception e) {
                     fileInfos.setStatus(BSFile.Status.VIRUS_INFECTED.value());
                     fileInfos.setStatusLinkedData(e.getMessage());
                     bsfiRepository.save(fileInfos);
@@ -335,8 +382,7 @@ public class Tools {
             } else {
                 throw new NotFound404Exception();
             }
-        }
-        catch (IOException ioExceptionObj) {
+        } catch (IOException ioExceptionObj) {
             log.error("Une erreur est survenue durant la lecture du fichier", ioExceptionObj);
             throw new ServerError500Exception("Une erreur est survenue durant la lecture du fichier", ioExceptionObj);
         } catch (NoSuchAlgorithmException e) {

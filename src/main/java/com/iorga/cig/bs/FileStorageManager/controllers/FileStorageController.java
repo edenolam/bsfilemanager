@@ -12,12 +12,15 @@ import io.swagger.annotations.ApiResponses;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -34,6 +37,9 @@ public class FileStorageController {
 
     @Autowired
     private Tools toolServices;
+
+    @Value("${nas.tasks.rootdir}")
+    private String nasTasksRootdir;
 
     /**
      * Récupération des informations relatives au fichier demandé.
@@ -262,6 +268,48 @@ public class FileStorageController {
             throw new ServerError500Exception("SHA256 non supporté.", e);
         }
     }
+
+    @ApiOperation(value = "",
+            notes = "")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "File successfully added to folder"),
+            @ApiResponse(code = 409, message = "Either the file with the same name already exists."),
+    })
+    @PostMapping(API_VERSION + "/bsltm-folders/{folderName}/files")
+    public ResponseEntity<BSFileInformation> addFileIntoBSLTMFolder(
+            @ApiParam(value = "${FileStorageController.folderName}", required = true, example = "FULL_DGCL") @PathVariable String folderName,
+            @ApiParam(value = "${FileStorageController.addFileIntoFolder.bsFile}", required = true) @RequestBody BSFile bsFile)
+            throws Conflict409Exception, ServerError500Exception, NotFound404Exception {
+
+        try {
+            // Calcul du hash du contenu (pour vérification)
+            Path ltFilePath = Paths.get(nasTasksRootdir, folderName, bsFile.getOriginalFileName());
+            File ltFile = ltFilePath.toFile();
+            String fileHash = toolServices.computeFileSha256ToBase64(ltFile);
+
+            // Mémorisation des informations concernant le fichier
+            BSFileInformation info = BSFileInformation.createNew(bsFile, folderName, (int) ltFile.length(), fileHash);
+
+            // Déplacement du fichier sur le NAS
+            toolServices.moveBSLTMFile(info, ltFilePath);
+            // Ecrire fichier "header" sur le NAS
+            toolServices.headerFileWrite(info);
+
+            info.setStatus(BSFile.Status.AVAILABLE.value());
+
+            info = bsfiRepository.save(info);
+            if (info == null)
+                return null;    // FIXME throw Ex
+
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.noCache())
+                    .body(info);
+        }
+        catch (NoSuchAlgorithmException e) {
+            throw new ServerError500Exception("SHA256 non supporté.", e);
+        }
+    }
+
 
     ///
     /// Opérations dédiées à la récupération du contenu de fichiers
