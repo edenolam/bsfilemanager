@@ -25,6 +25,6 @@ RUN mkdir /logs && mkdir /nas-drive
 
 EXPOSE 8080
 
-CMD chown bsfm /logs /nas-drive && sleep 5 && su bsfm -s /bin/sh -c "java -jar FileStorageManager-2.0.jar"
+CMD chown bsfm /logs /nas-drive && sleep 5 && su bsfm -s /bin/sh -c "java -jar FileStorageManager-2.0.1.jar"
 
-COPY --from=build /workspace/target/FileStorageManager-2.0.jar /workspace
+COPY --from=build /workspace/target/FileStorageManager-2.0.1.jar /workspace

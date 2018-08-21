@@ -1,5 +1,6 @@
 package com.iorga.cig.bs.FileStorageManager.models;
 
+import com.fasterxml.jackson.annotation.JsonGetter;
 import com.iorga.cig.bs.FileStorageManager.services.Tools;
 
 import javax.persistence.*;
@@ -9,6 +10,10 @@ import java.time.LocalDate;
 
 @Entity(name = "BSFileInformation")
 public class BSFileInformation {
+
+    private static final String privateContentUriMask = "/api/v1/fileInfos/%s/getContent";
+    private static final String publicContentUriMask = "/api/v1/publicContent/%s";
+    private static final String infosUriMask = "/api/v1/fileInfos/%s";
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -62,15 +67,19 @@ public class BSFileInformation {
     @Column(nullable = false)
     private Boolean isAttachment = true;
 
-    protected BSFileInformation() {
-    }
+    @Transient
+    private String contentUri;
+    @Transient
+    private String infosUri;
 
-    private BSFileInformation(String fileKey) {
+    protected BSFileInformation() {}
+
+    private BSFileInformation(String fileKey, boolean isPublic) {
         this.fileKey = fileKey;
         this.storageDate = Date.valueOf(LocalDate.now());
         this.status = 0;
         this.isSpecial = false;
-        this.isPublic = false;
+        this.isPublic = isPublic;
         this.isAttachment = true;
     }
 
@@ -91,7 +100,7 @@ public class BSFileInformation {
         byte[] fileKeyBuffer = Tools.computeStringSha256(computedFileName);
 
         // Mémorisation des informations concernant le fichier
-        BSFileInformation info = new BSFileInformation(Tools.toBase64(fileKeyBuffer, true));
+        BSFileInformation info = new BSFileInformation(Tools.toBase64(fileKeyBuffer, true), isPublic);
         info.setOriginalFileName(bsFile.getOriginalFileName());
         info.setFileContentType(bsFile.getFileContentType());
         info.setFileContentSize(fileContentSize);
@@ -102,9 +111,8 @@ public class BSFileInformation {
         info.setOwnerKey(bsFile.getOwnerKey());
         info.setExternalRef(bsFile.getExternalRef());
         info.setIsAttachment(bsFile.getIsAttachment());
-        // Special/Public file ?
+        // Special file ?
         info.setIsSpecial(isSpecial);
-        info.setIsPublic(isPublic);
         return info;
     }
 
@@ -283,5 +291,17 @@ public class BSFileInformation {
     public String toSpecialFileData(String dataFilePath) {
         return String.format("fileKey=%1$s%nonwerKey=%2$s%ndataFilePath=%3$s%noriginalFileName=%4$s%nfileContentType=%5$s%ntargetYear=%6$d%nexternalRef=%7$s%n",
                 fileKey, ownerKey, dataFilePath, originalFileName, fileContentType, targetYear, externalRef);
+    }
+
+    @JsonGetter("contentUri")
+    public String getContentUri() {
+        if (this.contentUri == null) this.contentUri = String.format(this.isPublic ? publicContentUriMask : privateContentUriMask, fileKey);
+        return this.contentUri;
+    }
+
+    @JsonGetter("infosUri")
+    public String getInfosUri() {
+        if (this.infosUri == null) this.infosUri = String.format(infosUriMask, fileKey);
+        return this.infosUri;
     }
 }

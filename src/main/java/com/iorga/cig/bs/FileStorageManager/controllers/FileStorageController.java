@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.core.io.Resource;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -30,7 +31,7 @@ public class FileStorageController {
 
     private final Logger log = LoggerFactory.getLogger(this.getClass());
 
-    private static final String API_VERSION = "/api/v1";
+    private final static String API_VERSION = "/api/v1";
 
     @Autowired
     private IBSFileInformationRepository bsfiRepository;
@@ -269,7 +270,7 @@ public class FileStorageController {
         }
     }
 
-    @ApiOperation(value = "",
+    @ApiOperation(value = "Sauvegarde d'un fichier généré par le service Long-Tasks.",
             notes = "")
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "File successfully added to folder"),
@@ -277,8 +278,8 @@ public class FileStorageController {
     })
     @PostMapping(API_VERSION + "/bsltm-folders/{folderName}/files")
     public ResponseEntity<BSFileInformation> addFileIntoBSLTMFolder(
-            @ApiParam(value = "${FileStorageController.folderName}", required = true, example = "FULL_DGCL") @PathVariable String folderName,
-            @ApiParam(value = "${FileStorageController.addFileIntoFolder.bsFile}", required = true) @RequestBody BSFile bsFile)
+            @ApiParam(value = "Répertoire = code de la Long Task génératrice.", required = true, example = "FULL_DGCL") @PathVariable String folderName,
+            @ApiParam(value = "Informations concernant le fichier généré à enregistrer.", required = true) @RequestBody BSFile bsFile)
             throws Conflict409Exception, ServerError500Exception, NotFound404Exception {
 
         try {
@@ -288,7 +289,7 @@ public class FileStorageController {
             String fileHash = toolServices.computeFileSha256ToBase64(ltFile);
 
             // Mémorisation des informations concernant le fichier
-            BSFileInformation info = BSFileInformation.createNew(bsFile, folderName, (int) ltFile.length(), fileHash);
+            BSFileInformation info = BSFileInformation.createNew(bsFile, "BSLTM-"+folderName, (int) ltFile.length(), fileHash);
 
             // Déplacement du fichier sur le NAS
             toolServices.moveBSLTMFile(info, ltFilePath);
