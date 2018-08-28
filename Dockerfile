@@ -17,9 +17,11 @@ WORKDIR /workspace
 RUN addgroup -g 10000 bsfm && \
     addgroup -g 10100 nas-files && \
     addgroup -g 10101 nas-specials && \
+    addgroup -g 10103 nas-ltm && \
     adduser -g "" -G bsfm -S -D -H -u 10000 bsfm && \
     adduser bsfm nas-files && \
-    adduser bsfm nas-specials
+    adduser bsfm nas-specials && \
+    adduser bsfm nas-ltm
 
 RUN mkdir /logs && mkdir /nas-drive
 
