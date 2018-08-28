@@ -264,7 +264,8 @@ public class Tools {
 
             boolean fileExists = Files.exists(filePathObj);
             if (!fileExists) {
-                Files.move(ltFilePath, filePathObj);
+                Files.copy(ltFilePath, filePathObj);
+                Files.delete(ltFilePath);
                 return setFilePermissions(filePathObj, BSFileType.FILES);
             } else {
                 log.warn("Un fichier de même nom existe déjà dans ce dossier", filePathObj);
