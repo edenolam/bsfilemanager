@@ -289,7 +289,7 @@ public class FileStorageController {
             String fileHash = toolServices.computeFileSha256ToBase64(ltFile);
 
             // Mémorisation des informations concernant le fichier
-            BSFileInformation info = BSFileInformation.createNew(bsFile, "BSLTM-"+folderName, (int) ltFile.length(), fileHash);
+            BSFileInformation info = BSFileInformation.createNewPublic(bsFile, "BSLTM-"+folderName, (int) ltFile.length(), fileHash);
 
             // Déplacement du fichier sur le NAS
             toolServices.moveBSLTMFile(info, ltFilePath);
