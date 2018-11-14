@@ -67,6 +67,9 @@ public class BSFileInformation {
     @Column(nullable = false)
     private Boolean isAttachment = true;
 
+    @Column(nullable = false)
+    private Boolean isContentNoVirusTrusted = false;
+
     @Transient
     private String contentUri;
     @Transient
@@ -303,5 +306,13 @@ public class BSFileInformation {
     public String getInfosUri() {
         if (this.infosUri == null) this.infosUri = String.format(infosUriMask, fileKey);
         return this.infosUri;
+    }
+
+    public Boolean getIsContentNoVirusTrusted() {
+        return isContentNoVirusTrusted;
+    }
+
+    public void setIsContentNoVirusTrusted(Boolean contentNoVirusTrusted) {
+        isContentNoVirusTrusted = contentNoVirusTrusted;
     }
 }

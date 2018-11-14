@@ -371,13 +371,15 @@ public class Tools {
                 }
 
                 // Check le contenu pour des virus qui serait détecté depuis le jour du dépot.
-                try {
-                    antivirusScan(data);
-                } catch (VirusFound409Exception e) {
-                    fileInfos.setStatus(BSFile.Status.VIRUS_INFECTED.value());
-                    fileInfos.setStatusLinkedData(e.getMessage());
-                    bsfiRepository.save(fileInfos);
-                    throw e;
+                if (!fileInfos.getIsContentNoVirusTrusted()) {
+                    try {
+                        antivirusScan(data);
+                    } catch (VirusFound409Exception e) {
+                        fileInfos.setStatus(BSFile.Status.VIRUS_INFECTED.value());
+                        fileInfos.setStatusLinkedData(e.getMessage());
+                        bsfiRepository.save(fileInfos);
+                        throw e;
+                    }
                 }
                 return new InputStreamResource(new ByteArrayInputStream(data));
             } else {

@@ -13,7 +13,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.env.Environment;
 import org.springframework.core.io.Resource;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -290,6 +289,8 @@ public class FileStorageController {
 
             // Mémorisation des informations concernant le fichier
             BSFileInformation info = BSFileInformation.createNewPublic(bsFile, "BSLTM-"+folderName, (int) ltFile.length(), fileHash);
+            // On fait confiance au contenu du fichier qui a normalement été généré par BSLTM
+            info.setIsContentNoVirusTrusted(true);
 
             // Déplacement du fichier sur le NAS
             toolServices.moveBSLTMFile(info, ltFilePath);
