@@ -83,6 +83,7 @@ public class Tools {
                 digester.update(buffer, 0, count);
             }
         } catch (FileNotFoundException e) {
+            log.warn(String.format("Ce fichier n'existe pas (%s)", file));
             throw new NotFound404Exception();
         } catch (IOException e) {
             throw new ServerError500Exception("Erreur de lecture du fichier.", e);
@@ -383,6 +384,7 @@ public class Tools {
                 }
                 return new InputStreamResource(new ByteArrayInputStream(data));
             } else {
+                log.warn(String.format("Ce fichier n'existe pas (%s)", filePathObj));
                 throw new NotFound404Exception();
             }
         } catch (IOException ioExceptionObj) {
